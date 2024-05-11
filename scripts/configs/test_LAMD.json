@@ -11,7 +11,7 @@
           "args": {
             "part": "test",
             "max_items": 1000,
-            "n_tokens": 2048
+            "n_tokens": 512
           }
         }
       ]

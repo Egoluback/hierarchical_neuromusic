@@ -5,11 +5,9 @@ from math import isinf, isnan
 from pathlib import Path
 
 import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
 import seaborn as sns
 from scipy import stats
-from scipy.stats import entropy
 from tqdm import tqdm
 
 from scripts.evaluation import (HarmonicReductionFeature,
@@ -51,12 +49,9 @@ def main(results: dict, word2vec_path: str, output_path: Path):
     }
 
     for idx, row in tqdm(results_data.iterrows(), total=results_data.shape[0]):
-        try:
-            prompt_m21 = open_midi(row['prompt_midi_path'], remove_drums=True)
-            generated_m21 = open_midi(row['generated_midi_path'], remove_drums=True)
-            original_m21 = open_midi(row['original_midi_path'], remove_drums=True)
-        except:
-            continue
+        prompt_m21 = open_midi(row['prompt_midi_path'], remove_drums=True)
+        generated_m21 = open_midi(row['generated_midi_path'], remove_drums=True)
+        original_m21 = open_midi(row['original_midi_path'], remove_drums=True)
 
         for feature in features:
             try:
@@ -79,41 +74,23 @@ def main(results: dict, word2vec_path: str, output_path: Path):
             prompt_to_generated_distances[str(feature)].append(dist_to_generated)
             prompt_to_original_distances[str(feature)].append(dist_to_original)
 
-    kl_divs = {}
+    pvalues = {}
     fig, axs = plt.subplots(1, len(features), figsize=(8 * len(features), 8))
     for idx, feature in enumerate(features):
         feature_name = str(feature)
-        generated_sample = prompt_to_generated_distances[feature_name]
-        original_sample = prompt_to_original_distances[feature_name]
-
-        sns.histplot(generated_sample, ax=axs[idx], bins=50, label='generated')
-        sns.histplot(original_sample, ax=axs[idx], bins=50, label='original')
+        a = prompt_to_generated_distances[feature_name]
+        b = prompt_to_original_distances[feature_name]
+        sns.histplot(a, ax=axs[idx], bins=50, label='generated')
+        sns.histplot(b, ax=axs[idx], bins=50, label='original')
         axs[idx].set_title(str(feature))
-
-        hist_min = min(generated_sample + original_sample)
-        hist_max = max(generated_sample + original_sample) + 1
-        hist1, _ = np.histogram(original_sample, bins=np.linspace(hist_min, hist_max, 100))
-        hist2, _ = np.histogram(generated_sample, bins=np.linspace(hist_min, hist_max, 100))
-        p = hist1 / np.sum(hist1)
-        q = hist2 / np.sum(hist2)
-        kl_divs[feature_name] = entropy(p, q)
-
-        prompt_to_generated_distances[feature_name] = [str(elem) for elem in prompt_to_generated_distances[feature_name]]
-        prompt_to_original_distances[feature_name] = [str(elem) for elem in prompt_to_original_distances[feature_name]]
+        _, pvalue = stats.kstest(a, b)
+        pvalues[feature_name] = pvalue
 
     os.makedirs(output_path, exist_ok=True)
     plt.legend()
     plt.savefig(output_path / 'distances_distributions.png', bbox_inches='tight')
-    with open(output_path / 'kl_divergence.json', 'w') as fp:
-         json.dump(kl_divs, fp, indent=2)
-
-
-    features_distributions = {
-        'original': prompt_to_original_distances,
-        'generated': prompt_to_generated_distances
-    }
-    with open(output_path / 'features_distributions.json', 'w') as fp:
-         json.dump(features_distributions, fp, indent=2)
+    with open(output_path / 'pvalues.json', 'w') as fp:
+         json.dump(pvalues, fp, indent=2)
 
 
 if __name__ == "__main__":

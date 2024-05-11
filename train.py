@@ -28,12 +28,15 @@ def main(config):
     logger = config.get_logger("train")
 
     # midi_encoder
+    print("Getting encoder...")
     midi_encoder = config.get_midi_encoder()
     logger.info(f'Tokenizer contains {len(midi_encoder)} tokens')
 
+    print("Getting dataloaders...")
     # setup data_loader instances
     dataloaders = get_dataloaders(config, midi_encoder)
 
+    print("Loading model...")
     # build model architecture, then print to console
     model = config.init_obj(
         config["arch"], 
