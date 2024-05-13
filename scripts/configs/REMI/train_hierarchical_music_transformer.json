@@ -1,6 +1,7 @@
 {
   "name": "Hierarchical_Music_Transformer",
   "n_gpu": 1,
+  "gpu_specific": 0,
   "augmentations": {
     "midi": [],
     "tokens": []
@@ -8,7 +9,7 @@
   "arch": {
     "type": "HierarchicalMusicTransformer",
     "args": {
-      "depth": [2, [2, [1, 1, 1], 2], 2],
+      "depth": [2, [2, [2, [2, [2, [2, 100, 2], 2], 2], 2], 2], 2],
       "input_length": 1024,
       "num_heads": 12,
       "d_model": 768,
@@ -16,7 +17,7 @@
       "rpr": true,
       "dropout": 0.1,
       "attn_resampling": false,
-      "updown_sample_type": "naive"
+      "updown_sample_type": "linear"
     }
   },
   "data": {
@@ -44,7 +45,7 @@
             "part": "validation",
             "audio_length": 180,
             "n_tokens": 1024,
-            "max_items": 1000
+            "max_items": 2000
           }
         }
       ]
@@ -59,7 +60,7 @@
             "part": "test",
             "audio_length": 180,
             "n_tokens": 1024,
-            "max_items": 1000
+	    "max_items": 2000
           }
         }
       ]
@@ -109,15 +110,15 @@
     }
   },
   "trainer": {
-    "epochs": 20,
-    "save_dir": "saved/",
+    "epochs": 40,
+    "save_dir": "/dev/shm/saved/",
     "save_period": 1,
     "verbosity": 2,
     "monitor": "min val_loss",
     "early_stop": 100,
     "visualize": "wandb",
-    "wandb_project": "diploma",
-    "wandb_run_name": "Hierarchical Music Transformer, 2@1024 2@512 1@256 1@128 1@256 2@512 2@1024, naive downsample",
+    "wandb_project": "hierarchical",
+    "wandb_run_name": "Hierarchical Music Transformer, 2@1024 ... 2@32 100@16 ... 2@1024, linear downsample",
     "len_epoch": 4000,
     "grad_norm_clip": 0.5
   }

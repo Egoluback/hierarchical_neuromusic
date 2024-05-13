@@ -9,7 +9,6 @@ from sklearn.model_selection import train_test_split
 
 ROOT_PATH = Path(__file__).absolute().resolve().parent.parent.parent
 
-
 def ensure_dir(dirname):
     dirname = Path(dirname)
     if not dirname.is_dir():
@@ -20,7 +19,7 @@ def read_json(fname):
     fname = Path(fname)
     with fname.open("rt") as handle:
         return json.load(handle, object_hook=OrderedDict)
-    
+
 
 def train_val_test_split(data, train_size, val_size, test_size, random_state=None):
     train, val = train_test_split(data, train_size=train_size, random_state=random_state)
@@ -40,7 +39,7 @@ def inf_loop(data_loader):
         yield from loader
 
 
-def prepare_device(n_gpu_use):
+def prepare_device(n_gpu_use, gpu_specific=0):
     """
     setup GPU device if available. get gpu device indices which are used for DataParallel
     """
@@ -57,7 +56,7 @@ def prepare_device(n_gpu_use):
             "available on this machine."
         )
         n_gpu_use = n_gpu
-    device = torch.device("cuda:0" if n_gpu_use > 0 else "cpu")
+    device = torch.device(f"cuda:{gpu_specific}" if n_gpu_use > 0 else "cpu")
     list_ids = list(range(n_gpu_use))
     return device, list_ids
 

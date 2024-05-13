@@ -1,6 +1,7 @@
 {
   "name": "Music_Transformer",
   "n_gpu": 1,
+  "gpu_specific": 1,
   "augmentations": {
     "midi": [],
     "tokens": []
@@ -8,8 +9,8 @@
   "arch": {
     "type": "MusicTransformer",
     "args": {
-      "input_length": 512,
-      "n_layers": 5,
+      "input_length": 1024,
+      "n_layers": 12,
       "num_heads": 12,
       "d_model": 768,
       "dim_feedforward": 1536,
@@ -27,7 +28,7 @@
           "args": {
             "part": "train",
             "audio_length": 180,
-            "n_tokens": 512
+            "n_tokens": 1024
           }
         }
       ]
@@ -41,8 +42,8 @@
           "args": {
             "part": "validation",
             "audio_length": 180,
-            "n_tokens": 512,
-            "max_items": 400
+            "n_tokens": 1024,
+            "max_items": 2000
           }
         }
       ]
@@ -56,8 +57,8 @@
           "args": {
             "part": "test",
             "audio_length": 180,
-            "n_tokens": 512,
-            "max_items": 400
+            "n_tokens": 1024,
+            "max_items": 2000
           }
         }
       ]
@@ -108,14 +109,14 @@
   },
   "trainer": {
     "epochs": 20,
-    "save_dir": "saved/",
+    "save_dir": "/dev/shm/saved/",
     "save_period": 1,
     "verbosity": 2,
     "monitor": "min val_loss",
     "early_stop": 100,
     "visualize": "wandb",
-    "wandb_project": "diploma",
-    "wandb_run_name": "Default Music Transformer, max_tokens 512",
+    "wandb_project": "hierarchical",
+    "wandb_run_name": "Default Music Transformer, 1024@1 ... , 12 layers",
     "len_epoch": 4000,
     "grad_norm_clip": 0.5
   }

@@ -46,11 +46,12 @@ def main(config):
     logger.info(model)
 
     # prepare for (multi-device) GPU training
-    device, device_ids = prepare_device(config["n_gpu"])
-    model = model.to(device)
+    device, device_ids = prepare_device(config["n_gpu"], config["gpu_specific"])
+    #model = model.to(device)
     # logger.info(f'Number of parameters: {sum(p.numel() for p in model.parameters())}')
     if len(device_ids) > 1:
         model = torch.nn.DataParallel(model, device_ids=device_ids)
+    model = model.to(device)
 
     # get function handles of loss and metrics
     loss_module = config.init_obj(

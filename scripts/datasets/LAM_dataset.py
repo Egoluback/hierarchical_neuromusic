@@ -7,6 +7,7 @@ import pandas as pd
 from miditok import REMI, TokenizerConfig
 from symusic import Score
 from tqdm import tqdm
+from pathlib import Path
 
 from scripts.base.base_dataset import BaseDataset
 from scripts.utils import ROOT_PATH, download, train_val_test_split
@@ -27,7 +28,7 @@ class LAMDataset(BaseDataset):
         if version not in list(URL_LINKS.keys()):
             raise ValueError(f'Version {version} not in {list(URL_LINKS.keys())}')
         if data_dir is None:
-            data_dir = ROOT_PATH / "data" / "datasets" / f"Los-Angeles-MIDI-Dataset_{version}"
+            data_dir = Path("/dev/shm/") / "data" / "datasets" / f"Los-Angeles-MIDI-Dataset_{version}"
             data_dir.mkdir(exist_ok=True, parents=True)
         self._data_dir = data_dir
         self.version = version
