@@ -168,11 +168,9 @@ class HourglassTransformer(nn.Module):
             depth=valley_depth,
             attn_resampling=attn_resampling,
             updown_sample_type=updown_sample_type,
-            # causal=causal,
             **transformer_kwargs
         )
 
-        # TODO LayerRPR is using self attention, we need basic transformer
         self.attn_resampling_pre_valley = get_transformer_block(num_layers=1,
                                                                 **transformer_kwargs) if attn_resampling else None
         self.attn_resampling_post_valley = get_transformer_block(num_layers=1,
@@ -182,54 +180,33 @@ class HourglassTransformer(nn.Module):
         self.post_transformer = get_transformer_block(num_layers=post_layers_depth, **transformer_kwargs)
 
     def forward(self, x, mask=None, src_key_padding_mask=None, is_causal=True):
-        # b : batch, n : sequence length, d : feature dimension, s : shortening factor
+        # b: batch, n: sequence length, d: feature dimension, s: shortening factor
 
         s = self.shorten_factor
         n, b = x.shape[:2]
 
-        # print(n, b, s)
-
         # shape (n, b, d)
 
-        # print("hierarchical transformer start", s, b, n)
-
         # top half of hourglass, pre-transformer layers
-
-        # print("pre transformer", x.shape, mask.shape)
-        # print("pre transformer", x.shape)
         x = self.pre_transformer(x, mask=mask, src_key_padding_mask=src_key_padding_mask)
-        # print("after pre transformer", x.shape)
-        # print(x.shape[-2])
 
         # pad to multiple of shortening factor, in preparation for pooling
-
         x = pad_to_multiple(x, s, dim=-1)
-
-        # print("padded", x.shape)
 
         if exists(mask):
             padded_mask = pad_to_multiple(mask, s, dim=-2, value=False)
 
-        # print(padded_mask.shape)
         # save the residual, and for "attention resampling" at downsample and upsample
-
         x_residual = x.clone()
 
-        # if autoregressive, do the shift by shortening factor minus one
+        shift = s - 1
+        x = F.pad(x, (0, 0, shift, -shift), value=0.)
 
-        is_causal = True
-        if is_causal:
-            shift = s - 1
-            x = F.pad(x, (0, 0, shift, -shift), value=0.)
+        if exists(mask):
+            padded_mask = F.pad(padded_mask, (shift, -shift), value=False)
 
-            if exists(mask):
-                padded_mask = F.pad(padded_mask, (shift, -shift), value=False)
-
-        # naive average pool
-
-        # print("downsample", x.shape)
+        # downsample
         downsampled = self.downsample(x)
-        # print("downsampled", downsampled.shape)
 
         if exists(mask):
             downsampled_mask = reduce(padded_mask, '(n s) b -> n b', 'sum', s=s) > 0
@@ -237,59 +214,43 @@ class HourglassTransformer(nn.Module):
         else:
             downsampled_mask = None
 
-        # print(downsampled_mask.shape)
-
         # pre-valley "attention resampling" - they have the pooled token in each bucket attend to the tokens pre-pooled
-
         if exists(self.attn_resampling_pre_valley):
             if exists(mask):
-                attn_resampling_mask = rearrange(padded_mask, '(n s) b -> n (s b)', s=s)
+                attn_resampling_mask = downsampled_mask
             else:
                 attn_resampling_mask = None
-            # TODO implement basic transformer with default attention
+
             downsampled = self.attn_resampling_pre_valley(
-                rearrange(downsampled, 'n b d -> (n b) () d'),
-                rearrange(x, '(n s) b d -> (n b) s d', s=s),
+                downsampled,
+                context=x,
                 mask=attn_resampling_mask
             )
 
-            downsampled = rearrange(downsampled, '(n b) () d -> n b d', b=b)
-
         # the "valley" - either a regular transformer or another hourglass
-
-        # print("valley")
         x = self.valley_transformer(downsampled, mask=downsampled_mask, src_key_padding_mask=src_key_padding_mask)
 
-        # valley_out = x.clone()
+        valley_out = x.clone()
 
-        # naive repeat upsample
-
-        # print("upsample")
+        # upsample
         x = self.upsample(x)
 
         # add the residual
-
         x = x + x_residual
 
         # post-valley "attention resampling"
-
         if exists(self.attn_resampling_post_valley):
             x = self.attn_resampling_post_valley(
-                rearrange(x, '(n s) b d -> (n b) s d', s=s),
-                rearrange(valley_out, 'n b d -> (n b) () d')
+                x,
+                context=valley_out
             )
 
-            x = rearrange(x, '(n b) s d -> (n s) b d', b=b)
-
         # bring sequence back to original length, if it were padded for pooling
-
         x = x[:, :n]
-        # print("finish:", x.shape)
 
         # post-valley transformers
-
-        # print("post transformer")
         x = self.post_transformer(x, mask=mask, src_key_padding_mask=src_key_padding_mask)
+
         return x  # is already normed in RPR Transformer Encoder
 
 
@@ -316,9 +277,9 @@ class HierarchicalMusicTransformer(MusicTransformer):
             d_model: int = 768,
             dim_feedforward: int = 1024,
             dropout: float = 0.1,
+            shorten_factor=2,
             updown_sample_type: str = "naive",
-            attn_resampling=False,
-            rpr=True
+            attn_resampling=False
     ) -> None:
         """Inits MusicTransformer.
 
@@ -373,26 +334,9 @@ class HierarchicalMusicTransformer(MusicTransformer):
         # Define encoder as None for Base Transformer
         encoder = HourglassTransformer(self.d_model, self.nhead, self.d_ff, depth, self.dropout,
                                        updown_sample_type=updown_sample_type, attn_resampling=attn_resampling,
+                                       shorten_factor=shorten_factor,
                                        er_len=self.max_seq)
 
-        # else define encoder as TransformerEncoderRPR for RPR Transformer
-        # if rpr:
-        #     encoder_norm = LayerNorm(self.d_model)
-        #     encoder_layer = TransformerEncoderLayerRPR(
-        #         self.d_model,
-        #         self.nhead,
-        #         dim_feedforward=self.d_ff,
-        #         p_dropout=self.dropout,
-        #         er_len=self.max_seq,
-        #     )
-        #     encoder = TransformerEncoderRPR(
-        #         encoder_layer,
-        #         self.nlayers,
-        #         norm=encoder_norm,
-        #     )
-
-        # To make a decoder-only transformer we need to use masked encoder
-        # layers and DummyDecoder to essentially just return the encoder output
         self.transformer = nn.Transformer(
             d_model=self.d_model,
             nhead=self.nhead,
@@ -405,57 +349,3 @@ class HierarchicalMusicTransformer(MusicTransformer):
         )
 
         self.Wout = nn.Linear(self.d_model, n_class)
-
-# main class
-
-# class HierarchicalMusicTransformer(MusicTransformer):
-#     """
-#     ----------
-#     Author: Damon Gwinn
-#     ----------
-#     Music Transformer reproduction from https://arxiv.org/abs/1809.04281. Arguments allow for
-#     tweaking the transformer architecture (https://arxiv.org/abs/1706.03762) and the rpr argument
-#     toggles Relative Position Representations (RPR - https://arxiv.org/abs/1803.02155).
-#
-#     Supports training and generation using Pytorch's nn.Transformer class with dummy decoder to
-#     make a decoder-only transformer architecture
-#
-#     For RPR support, there is modified Pytorch 1.2.0 code in rpr.py. Modified source will be
-#     kept up to date with Pytorch revisions only as necessary.
-#     ----------
-#     """
-#
-#     def __init__(self, depth, n_layers=6, num_heads=8, d_model=512, dim_feedforward=1024,
-#                  dropout=0.1, max_sequence=2048, rpr=False, additional_features_columns_count=0):
-#         super(MusicTransformer, self).__init__()
-#
-#         self.dummy = DummyDecoder()
-#
-#         self.nlayers = n_layers
-#         self.nhead = num_heads
-#         self.d_model = d_model
-#         self.d_ff = dim_feedforward
-#         self.dropout = dropout
-#         self.max_seq = max_sequence
-#         self.rpr = rpr
-#         self.genres_cnt = 12
-#
-#         print('Vocab size:', VOCAB_SIZE)
-#         # Input embedding
-#         self.embedding = nn.Embedding(VOCAB_SIZE,
-#                                       self.d_model - additional_features_columns_count)  # - 1) # - self.genres_cnt) #d_model - sentiment_dim - genres_count
-#
-#         # Positional encoding
-#         self.positional_encoding = PositionalEncoding(self.d_model, self.dropout, self.max_seq)
-#
-#         encoder = HourglassTransformer(self.d_model, self.nhead, self.d_ff, depth, self.dropout, er_len=self.max_seq)
-#
-#         self.transformer = nn.Transformer(
-#             d_model=self.d_model, nhead=self.nhead, num_encoder_layers=self.nlayers,
-#             num_decoder_layers=0, dropout=self.dropout,  # activation=self.ff_activ,
-#             dim_feedforward=self.d_ff, custom_decoder=self.dummy, custom_encoder=encoder
-#         )
-#
-#         # Final output is a softmaxed linear layer
-#         self.Wout = nn.Linear(self.d_model, VOCAB_SIZE)
-#         self.softmax = nn.Softmax(dim=-1)

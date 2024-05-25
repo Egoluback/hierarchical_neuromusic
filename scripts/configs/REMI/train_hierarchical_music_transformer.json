@@ -9,15 +9,15 @@
   "arch": {
     "type": "HierarchicalMusicTransformer",
     "args": {
-      "depth": [2, [2, [2, [2, [2, [2, 100, 2], 2], 2], 2], 2], 2],
-      "input_length": 1024,
+      "depth": [2, 1, 2],
+      "input_length": 512,
       "num_heads": 12,
       "d_model": 768,
       "dim_feedforward": 1536,
-      "rpr": true,
       "dropout": 0.1,
-      "attn_resampling": false,
-      "updown_sample_type": "linear"
+      "attn_resampling": true,
+      "shorten_factor": 2,
+      "updown_sample_type": "naive"
     }
   },
   "data": {
@@ -30,7 +30,7 @@
           "args": {
             "part": "train",
             "audio_length": 180,
-            "n_tokens": 1024
+            "n_tokens": 512
           }
         }
       ]
@@ -44,7 +44,7 @@
           "args": {
             "part": "validation",
             "audio_length": 180,
-            "n_tokens": 1024,
+            "n_tokens": 512,
             "max_items": 2000
           }
         }
@@ -59,8 +59,8 @@
           "args": {
             "part": "test",
             "audio_length": 180,
-            "n_tokens": 1024,
-	    "max_items": 2000
+            "n_tokens": 512,
+	        "max_items": 2000
           }
         }
       ]
@@ -110,15 +110,15 @@
     }
   },
   "trainer": {
-    "epochs": 40,
-    "save_dir": "/dev/shm/saved/",
+    "epochs": 20,
+    "save_dir": "saved/",
     "save_period": 1,
     "verbosity": 2,
     "monitor": "min val_loss",
     "early_stop": 100,
     "visualize": "wandb",
     "wandb_project": "hierarchical",
-    "wandb_run_name": "Hierarchical Music Transformer, 2@1024 ... 2@32 100@16 ... 2@1024, linear downsample",
+    "wandb_run_name": "Hierarchical Music Transformer, ...",
     "len_epoch": 4000,
     "grad_norm_clip": 0.5
   }

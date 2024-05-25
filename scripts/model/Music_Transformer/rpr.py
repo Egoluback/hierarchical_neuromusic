@@ -132,6 +132,7 @@ class TransformerEncoderLayerRPR(Module):
         src: torch.Tensor,
         src_mask: Optional[torch.Tensor] = None,
         src_key_padding_mask: Optional[torch.Tensor] = None,
+        context=None,
     ) -> torch.Tensor:
         """Applies Multi-Head Attention with RPR and feedforward network model.
 
@@ -146,10 +147,12 @@ class TransformerEncoderLayerRPR(Module):
         Returns:
             A tensor of dimension (max_seq, batch_size, d_model).
         """
+        if context is None:
+            context = src
         src2 = self.self_attn(
             src,
-            src,
-            src,
+            context,
+            context,
             attn_mask=src_mask,
             key_padding_mask=src_key_padding_mask,
         )[0]
