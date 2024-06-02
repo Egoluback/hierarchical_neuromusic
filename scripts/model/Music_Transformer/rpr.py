@@ -50,6 +50,7 @@ class TransformerEncoderRPR(Module):
         src: torch.Tensor,
         mask: Optional[torch.Tensor] = None,
         src_key_padding_mask: Optional[torch.Tensor] = None,
+        context=None,
         **args
     ) -> torch.Tensor:
         """Applies a sequence of encoder layers.
@@ -71,6 +72,7 @@ class TransformerEncoderRPR(Module):
                 output,
                 src_mask=mask,
                 src_key_padding_mask=src_key_padding_mask,
+                context=context
             )
 
         if self.norm:
@@ -148,11 +150,18 @@ class TransformerEncoderLayerRPR(Module):
             A tensor of dimension (max_seq, batch_size, d_model).
         """
         if context is None:
-            context = src
+            k = src
+            v = src
+        else:
+            if src.shape[0] > context.shape[0]:
+                k = context
+                v = context
+            else:
+                k, v = context.chunk(2, dim=0)
         src2 = self.self_attn(
             src,
-            context,
-            context,
+            k,
+            v,
             attn_mask=src_mask,
             key_padding_mask=src_key_padding_mask,
         )[0]

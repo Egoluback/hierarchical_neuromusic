@@ -1,11 +1,11 @@
 from typing import Optional
 
+import torch
 from miditok.midi_tokenizer import MIDITokenizer
 from torch import Tensor, nn
 from torch.nn.modules.normalization import LayerNorm
 
 from scripts.base import BaseModel
-
 from .positional_encoding import PositionalEncoding
 from .rpr import TransformerEncoderLayerRPR, TransformerEncoderRPR
 
@@ -25,15 +25,15 @@ class MusicTransformer(BaseModel):
     """
 
     def __init__(
-        self,
-        tokenizer: MIDITokenizer,
-        input_length: int,
-        n_layers: int=6,
-        num_heads: int=8,
-        d_model: int=768,
-        dim_feedforward: int=1024,
-        dropout: float=0.1,
-        rpr: bool=True,
+            self,
+            tokenizer: MIDITokenizer,
+            input_length: int,
+            n_layers: int = 6,
+            num_heads: int = 8,
+            d_model: int = 768,
+            dim_feedforward: int = 1024,
+            dropout: float = 0.1,
+            rpr: bool = True,
     ) -> None:
         """Inits MusicTransformer.
 
@@ -114,9 +114,9 @@ class MusicTransformer(BaseModel):
         self.Wout = nn.Linear(self.d_model, n_class)
 
     def forward(
-        self,
-        input_ids: Tensor,
-        **batch
+            self,
+            input_ids: Tensor,
+            **batch
     ) -> Tensor:
         """Takes an input sequence and outputs predictions via seq2seq method.
 
@@ -166,14 +166,14 @@ class DummyDecoder(nn.Module):
     """
 
     def forward(
-        self,
-        tgt: Tensor,
-        memory: Tensor,
-        tgt_mask: Optional[Tensor] = None,
-        memory_mask: Optional[Tensor] = None,
-        tgt_key_padding_mask: Optional[Tensor] = None,
-        memory_key_padding_mask: Optional[Tensor] = None,
-        **args
+            self,
+            tgt: Tensor,
+            memory: Tensor,
+            tgt_mask: Optional[Tensor] = None,
+            memory_mask: Optional[Tensor] = None,
+            tgt_key_padding_mask: Optional[Tensor] = None,
+            memory_key_padding_mask: Optional[Tensor] = None,
+            **args
     ) -> Tensor:
         """Returns the input (memory).
 
