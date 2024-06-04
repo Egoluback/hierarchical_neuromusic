@@ -35,6 +35,9 @@ def pad_to_multiple(tensor, multiple, dim=-2, value=0):
 def cast_tuple(val, depth=1):
     return val if isinstance(val, tuple) else ((val,) * depth)
 
+def to_tuple_rec(tup):
+    res = [to_tuple_rec(i) if type(i) == list else i for i in tup]
+    return tuple(res)
 
 def get_transformer_block(dim_feedforward, num_layers, d_model, p_dropout, nhead, **kwargs):
     encoder_norm = LayerNorm(d_model)
@@ -113,114 +116,6 @@ class LinearUpsample(nn.Module):
         return rearrange(x, 'n b (s d) -> (n s) b d', s=self.shorten_factor)
 
 
-class PreNormResidual(nn.Module):
-    def __init__(self, dim, fn):
-        super().__init__()
-        self.norm = nn.LayerNorm(dim)
-        self.fn = fn
-
-    def forward(self, x, **kwargs):
-        print(x.shape)
-        return self.fn(self.norm(x), **kwargs) + x
-
-
-class Attention(nn.Module):
-    def __init__(
-            self,
-            dim,
-            heads=8,
-            dim_head=64,
-            dropout=0.,
-            causal=False
-    ):
-        super().__init__()
-        self.heads = heads
-        self.causal = causal
-        self.scale = dim_head ** -0.5
-        inner_dim = heads * dim_head
-
-        self.to_q = nn.Linear(dim, inner_dim, bias=False)
-        self.to_kv = nn.Linear(dim, inner_dim * 2, bias=False)
-        self.to_out = nn.Linear(inner_dim, dim)
-
-        self.dropout = nn.Dropout(dropout)
-
-    def forward(self, x, context=None, mask=None):
-        h, device = self.heads, x.device
-        kv_input = default(context, x)
-
-        q, k, v = self.to_q(x), *self.to_kv(kv_input).chunk(2, dim=-1)
-        q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> b h n d', h=h), (q, k, v))
-
-        q = q * self.scale
-
-        sim = einsum('b h i d, b h j d -> b h i j', q, k)
-        mask_value = -torch.finfo(sim.dtype).max
-
-        if exists(mask):
-            mask = rearrange(mask, 'b j -> b () () j')
-            sim = sim.masked_fill(~mask, mask_value)
-
-        if self.causal:
-            i, j = sim.shape[-2:]
-            mask = torch.ones(i, j, device=device, dtype=torch.bool).triu_(j - i + 1)
-            mask = rearrange(mask, 'i j -> () () i j')
-            sim = sim.masked_fill(mask, mask_value)
-
-        attn = sim.softmax(dim=-1)
-        attn = self.dropout(attn)
-
-        out = einsum('b h i j, b h j d -> b h i d', attn, v)
-        out = rearrange(out, 'b h n d -> b n (h d)', h=h)
-        return self.to_out(out)
-
-
-def FeedForward(dim, mult=4, dropout=0.):
-    return nn.Sequential(
-        nn.Linear(dim, dim * mult),
-        nn.GELU(),
-        nn.Dropout(dropout),
-        nn.Linear(dim * mult, dim)
-    )
-
-
-# transformer classes
-
-class Transformer(nn.Module):
-    def __init__(
-            self,
-            dim_feedforward,
-            *,
-            num_layers,
-            causal=True,
-            nhead=8,
-            d_model=64,
-            p_dropout=0.,
-            ff_mult=4,
-            ff_dropout=0.,
-            norm_out=False
-    ):
-        super().__init__()
-        self.layers = nn.ModuleList([])
-
-        for _ in range(num_layers):
-            self.layers.append(nn.ModuleList([
-                PreNormResidual(dim_feedforward,
-                                Attention(dim_feedforward, heads=nhead, dim_head=d_model, dropout=p_dropout,
-                                          causal=causal)),
-                PreNormResidual(dim_feedforward, FeedForward(dim_feedforward, mult=ff_mult, dropout=ff_dropout))
-            ]))
-
-        self.norm = nn.LayerNorm(dim_feedforward) if norm_out else nn.Identity()
-
-    def forward(self, x, context=None, mask=None):
-        for attn, ff in self.layers:
-            x = attn(x, context=context, mask=mask)
-            x = ff(x)
-
-        return self.norm(x)
-
-
 # transformer class
 
 class HourglassTransformer(nn.Module):
@@ -234,8 +129,7 @@ class HourglassTransformer(nn.Module):
             er_len=None,
             shorten_factor=2,
             attn_resampling=False,
-            updown_sample_type='naive',
-            causal=False
+            updown_sample_type='naive'
     ):
         super().__init__()
         assert len(depth) == 3, 'depth should be a tuple of length 3'
@@ -259,7 +153,6 @@ class HourglassTransformer(nn.Module):
             er_len=er_len
         )
 
-        self.causal = causal
         self.shorten_factor = shorten_factor
 
         if updown_sample_type == 'naive':
@@ -279,16 +172,12 @@ class HourglassTransformer(nn.Module):
             **transformer_kwargs
         )
 
-        # self.attn_resampling_pre_valley = Transformer(num_layers=1, d_model=d_model,
-        #                                               nhead=nhead,
-        #                                               dim_feedforward=dim_feedforward,
-        #                                               p_dropout=p_dropout) if attn_resampling else None
-        self.attn_resampling_pre_valley = get_transformer_block(num_layers=1,d_model=d_model,
+        self.attn_resampling_pre_valley = get_transformer_block(num_layers=1, d_model=d_model,
                                                                 nhead=nhead,
                                                                 dim_feedforward=dim_feedforward,
                                                                 p_dropout=p_dropout,
                                                                 er_len=None) if attn_resampling else None
-        self.attn_resampling_post_valley = get_transformer_block(num_layers=1,d_model=d_model,
+        self.attn_resampling_post_valley = get_transformer_block(num_layers=1, d_model=d_model,
                                                                  nhead=nhead,
                                                                  dim_feedforward=dim_feedforward,
                                                                  p_dropout=p_dropout,
@@ -298,92 +187,62 @@ class HourglassTransformer(nn.Module):
         self.post_transformer = get_transformer_block(num_layers=post_layers_depth, **transformer_kwargs)
 
     def forward(self, x, mask=None, src_key_padding_mask=None, is_causal=True):
-        # b: batch, n: sequence length, d: feature dimension, s: shortening factor
-        # print(mask.shape)
+        # shape (sequence length, batch size, feature dimension)
 
-        s = self.shorten_factor
-        n, b = x.shape[:2]
+        seq_len, batch_size = x.shape[: 2]
 
-        # shape (n, b, d)
-
-        # top half of hourglass, pre-transformer layers
         x = self.pre_transformer(x, mask=mask, src_key_padding_mask=src_key_padding_mask)
 
-        # pad to multiple of shortening factor, in preparation for pooling
-        x = pad_to_multiple(x, s, dim=-1)
+        x = pad_to_multiple(x, self.shorten_factor, dim=-1)
 
         if exists(mask):
-            padded_mask = pad_to_multiple(mask, s, dim=-2, value=False)
+            padded_mask = pad_to_multiple(mask, self.shorten_factor, dim=-2, value=False)
 
-        # save the residual, and for "attention resampling" at downsample and upsample
         x_residual = x.clone()
 
-        is_causal = True
-        if is_causal:
-            shift = s - 1
-            x = F.pad(x, (0, 0, shift, -shift), value=0.)
+        # music transformer is causal
+        shift = self.shorten_factor - 1
+        x = F.pad(x, (0, 0, shift, -shift), value=0.)
 
-            if exists(mask):
-                padded_mask = F.pad(padded_mask, (shift, -shift), value=False)
+        if exists(mask):
+            padded_mask = F.pad(padded_mask, (shift, -shift), value=False)
 
-        # downsample
         downsampled = self.downsample(x)
 
         if exists(mask):
-            downsampled_mask = reduce(padded_mask, '(n s) b -> n b', 'sum', s=s) > 0
-            downsampled_mask = reduce(downsampled_mask, 'n (s b) -> n b', 'sum', s=s) > 0
+            downsampled_mask = reduce(padded_mask, '(n s) b -> n b', 'sum', s=self.shorten_factor) > 0
+            downsampled_mask = reduce(downsampled_mask, 'n (s b) -> n b', 'sum', s=self.shorten_factor) > 0
         else:
             downsampled_mask = None
 
-        # pre-valley "attention resampling" - they have the pooled token in each bucket attend to the tokens pre-pooled
         if exists(self.attn_resampling_pre_valley):
-            # TODO
             if exists(mask):
                 attn_resampling_mask = downsampled_mask
             else:
                 attn_resampling_mask = None
 
-            # print(downsampled.shape, x.shape)
-            # print("attn resampling")
             downsampled = downsampled + self.attn_resampling_pre_valley(
                 downsampled,
                 context=x,
                 mask=attn_resampling_mask
             )
-            # downsampled = self.attn_resampling_pre_valley(
-            #     rearrange(downsampled, 'n b d -> (n b) () d'),
-            #     context=rearrange(x, '(n s) b d -> (n b) s d', s = s),
-            #     mask=downsampled_mask
-            # )
 
-
-        # the "valley" - either a regular transformer or another hourglass
         x = self.valley_transformer(downsampled, mask=downsampled_mask, src_key_padding_mask=src_key_padding_mask)
 
         valley_out = x.clone()
 
-        # upsample
         x = self.upsample(x)
 
-        # add the residual
         x = x + x_residual
 
-        # post-valley "attention resampling"
         if exists(self.attn_resampling_post_valley):
-            # print(x.shape, valley_out.shape)
-            # x = self.attn_resampling_post_valley(
-            #     rearrange(x, '(n s) b d -> (n b) s d', s = s),
-            #     context=rearrange(valley_out, 'n b d -> (n b) () d')
-            # )
             x = x + self.attn_resampling_post_valley(
                 x,
                 context=valley_out
             )
 
-        # bring sequence back to original length, if it were padded for pooling
-        x = x[:, :n]
+        x = x[:, : seq_len]
 
-        # post-valley transformers
         x = self.post_transformer(x, mask=mask, src_key_padding_mask=src_key_padding_mask)
 
         return x  # is already normed in RPR Transformer Encoder
@@ -460,13 +319,8 @@ class HierarchicalMusicTransformer(MusicTransformer):
             max_len=self.max_seq,
         )
 
-        def to_tuple_rec(tup):
-            res = [to_tuple_rec(i) if type(i) == list else i for i in tup]
-            return tuple(res)
-
         depth = to_tuple_rec(depth)
 
-        # Define encoder as None for Base Transformer
         encoder = HourglassTransformer(self.d_model, self.nhead, self.d_ff, depth, self.dropout,
                                        updown_sample_type=updown_sample_type, attn_resampling=attn_resampling,
                                        shorten_factor=shorten_factor,
