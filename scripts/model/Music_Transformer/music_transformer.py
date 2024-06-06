@@ -143,7 +143,7 @@ class MusicTransformer(BaseModel):
 
         # Since there are no true decoder layers, the tgt is unused
         # Pytorch wants src and tgt to have some equal dims however
-        x_out = self.transformer(src=x, tgt=x, src_mask=mask)
+        x_out, x_hidden = self.transformer(src=x, tgt=x, src_mask=mask)
         # masking somehow breaks gradients (nans in gradients)
 
         # Back to (batch_size, max_seq, d_model)
@@ -155,7 +155,7 @@ class MusicTransformer(BaseModel):
 
         # They are trained to predict the next note in sequence
         # we don't need the last one
-        return {"logits": y}
+        return {"logits": y, "logits_hidden": x_hidden}
 
 
 class DummyDecoder(nn.Module):

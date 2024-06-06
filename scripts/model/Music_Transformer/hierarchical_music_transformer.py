@@ -1,5 +1,6 @@
 import math
 
+import torch
 import torch.nn.functional as F
 from einops import rearrange, reduce, repeat
 from miditok.midi_tokenizer import MIDITokenizer
@@ -229,11 +230,15 @@ class HourglassTransformer(nn.Module):
 
         x = self.valley_transformer(downsampled, mask=downsampled_mask, src_key_padding_mask=src_key_padding_mask)
 
+        x_hidden_valley = None
+        if isinstance(x, tuple):
+            x, x_hidden_valley = x
+
         valley_out = x.clone()
 
-        x = self.upsample(x)
+        upsampled = self.upsample(x)
 
-        x = x + x_residual
+        x = upsampled + x_residual
 
         if exists(self.attn_resampling_post_valley):
             x = x + self.attn_resampling_post_valley(
@@ -245,7 +250,11 @@ class HourglassTransformer(nn.Module):
 
         x = self.post_transformer(x, mask=mask, src_key_padding_mask=src_key_padding_mask)
 
-        return x  # is already normed in RPR Transformer Encoder
+        x_hidden = [x_residual, upsampled]
+        if x_hidden_valley is not None:
+            x_hidden = [x_residual, *x_hidden_valley, upsampled]
+
+        return x, x_hidden  # is already normed in RPR Transformer Encoder
 
 
 class HierarchicalMusicTransformer(MusicTransformer):
