@@ -1,6 +1,5 @@
 import math
 
-import torch
 import torch.nn.functional as F
 from einops import rearrange, reduce, repeat
 from miditok.midi_tokenizer import MIDITokenizer
@@ -36,9 +35,11 @@ def pad_to_multiple(tensor, multiple, dim=-2, value=0):
 def cast_tuple(val, depth=1):
     return val if isinstance(val, tuple) else ((val,) * depth)
 
+
 def to_tuple_rec(tup):
     res = [to_tuple_rec(i) if type(i) == list else i for i in tup]
     return tuple(res)
+
 
 def get_transformer_block(dim_feedforward, num_layers, d_model, p_dropout, nhead, **kwargs):
     encoder_norm = LayerNorm(d_model)

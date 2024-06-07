@@ -29,4 +29,4 @@ class CosineCELossWrapper(CrossEntropyLoss):
 
         cumul_pairwise_loss = torch.cat([self.calc_pairwise_cosine(logit_hidden) for logit_hidden in logits_hidden])
 
-        return ce_loss + 0.1*cumul_pairwise_loss.mean()
+        return ce_loss + 0.01*cumul_pairwise_loss.mean()
