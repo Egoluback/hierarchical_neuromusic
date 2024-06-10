@@ -166,6 +166,8 @@ class HourglassTransformer(nn.Module):
         else:
             raise ValueError(f'unknown updown_sample_type keyword value - must be either naive or linear for now')
 
+        self.updown_sample_type = updown_sample_type
+
         self.valley_transformer = get_hourglass_transformer(
             shorten_factor=rest_shorten_factor,
             depth=valley_depth,
@@ -255,6 +257,8 @@ class HourglassTransformer(nn.Module):
         if x_hidden_valley is not None:
             x_hidden = [x_residual, *x_hidden_valley, upsampled]
 
+        if self.updown_sample_type == 'naive':
+            x_hidden.pop()
         return x, x_hidden  # is already normed in RPR Transformer Encoder
 
 
