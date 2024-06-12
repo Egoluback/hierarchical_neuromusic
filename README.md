@@ -1,4 +1,4 @@
-# Neuromusic project 
+# Hierarchical Music Transformer 
 
 ## Project description
 
