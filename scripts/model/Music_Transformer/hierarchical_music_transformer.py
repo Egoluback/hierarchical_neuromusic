@@ -253,9 +253,9 @@ class HourglassTransformer(nn.Module):
 
         x = self.post_transformer(x, mask=mask, src_key_padding_mask=src_key_padding_mask)
 
-        x_hidden = [x_residual, upsampled]
+        x_hidden = [downsampled, upsampled]
         if x_hidden_valley is not None:
-            x_hidden = [x_residual, *x_hidden_valley, upsampled]
+            x_hidden = [downsampled, *x_hidden_valley, upsampled]
 
         if self.updown_sample_type == 'naive':
             x_hidden.pop()
