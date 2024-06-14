@@ -131,7 +131,8 @@ class HourglassTransformer(nn.Module):
             er_len=None,
             shorten_factor=2,
             attn_resampling=False,
-            updown_sample_type='naive'
+            updown_sample_type='naive',
+            save_updown_hidden=True
     ):
         super().__init__()
         assert len(depth) == 3, 'depth should be a tuple of length 3'
@@ -167,6 +168,7 @@ class HourglassTransformer(nn.Module):
             raise ValueError(f'unknown updown_sample_type keyword value - must be either naive or linear for now')
 
         self.updown_sample_type = updown_sample_type
+        self.save_updown_hidden = save_updown_hidden
 
         self.valley_transformer = get_hourglass_transformer(
             shorten_factor=rest_shorten_factor,
@@ -257,7 +259,7 @@ class HourglassTransformer(nn.Module):
         if x_hidden_valley is not None:
             x_hidden = [downsampled, *x_hidden_valley, upsampled]
 
-        if self.updown_sample_type == 'naive':
+        if self.save_updown_hidden == 'naive':
             x_hidden.pop()
         return x, x_hidden  # is already normed in RPR Transformer Encoder
 
@@ -287,7 +289,8 @@ class HierarchicalMusicTransformer(MusicTransformer):
             dropout: float = 0.1,
             shorten_factor=2,
             updown_sample_type: str = "naive",
-            attn_resampling=False
+            attn_resampling=False,
+            save_updown_hidden=True
     ) -> None:
         """Inits MusicTransformer.
 
@@ -337,7 +340,7 @@ class HierarchicalMusicTransformer(MusicTransformer):
 
         encoder = HourglassTransformer(self.d_model, self.nhead, self.d_ff, depth, self.dropout,
                                        updown_sample_type=updown_sample_type, attn_resampling=attn_resampling,
-                                       shorten_factor=shorten_factor,
+                                       shorten_factor=shorten_factor,save_updown_hidden=save_updown_hidden,
                                        er_len=self.max_seq)
 
         self.transformer = nn.Transformer(
