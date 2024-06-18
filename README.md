@@ -17,8 +17,8 @@ Downsample/upsample functions:
 
 Losses:
 - CrossEntropyLoss
-- CosineCrossEntropyLoss: CELoss + C*cosine distances of consecutive pairs, where C is a constant. The goal is to make them different.
-- ExpCosineCrossEntropyLoss: CELoss + C*exp(-cosine distances of all pairs).sum().mean(), where C is a constant. The goal is to encourage similarity to something already known
+- CosineCrossEntropyLoss: the idea is to make pairs after shortening different $$- \sum_{i=1}^{n} y_i\cdot \log \hat{y_i} + \alpha\cdot \frac{1}{N} \sum_{k=1}^{N} \frac{1}{l_k} \sum_{i=1}^{l_k} \langle x_{l_k 2i}, x_{l_k 2i + 1}\rangle$$
+- ExpCosineCrossEntropyLoss: the idea is to encourage similarity to something already known for all pairs after shortening/upsampling $$- \sum_{i=1}^{n} y_i\cdot \log \hat{y_i} + \alpha\cdot \frac{1}{N} \sum_{k=1}^{N} \sum_{i=1}^{l_k} \sum_{j=1}^{l_k} e^{-\langle x_{l_k i}, x_{l_k j}\rangle}$$
 
 ## Project structure
 - **/scripts** - project scripts
