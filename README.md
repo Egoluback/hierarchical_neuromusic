@@ -8,7 +8,7 @@ This project provides implementation of [Hierarchical Transformer(Hourglass)](ht
 
 There were impemented various types of downsample/upsample functions from the paper and losses for different experiments. In all experiments model was training on [Los Angeles MIDI Dataset 3.1](https://github.com/asigalov61/Los-Angeles-MIDI-Dataset) with REMI Tokenizer. <br />
 
-You can explore all the experiments on [WandB](https://wandb.ai/glinkamusic-ai/hierarchical).
+You can explore all the experiments on the [WandB report](https://api.wandb.ai/links/glinkamusic-ai/q9cq3gfg).
 
 Downsample/upsample functions:
 - Naive(reduce with mean/copy)
