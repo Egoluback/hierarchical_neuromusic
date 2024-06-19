@@ -13,7 +13,6 @@ from .rpr import TransformerEncoderLayerRPR, TransformerEncoderRPR
 
 
 # helpers
-
 def exists(val):
     return val is not None
 
@@ -259,7 +258,7 @@ class HourglassTransformer(nn.Module):
         if x_hidden_valley is not None:
             x_hidden = [downsampled, *x_hidden_valley, upsampled]
 
-        if self.save_updown_hidden == 'naive':
+        if self.save_updown_hidden:
             x_hidden.pop()
         return x, x_hidden  # is already normed in RPR Transformer Encoder
 
