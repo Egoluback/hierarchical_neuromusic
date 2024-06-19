@@ -22,19 +22,23 @@ Losses:
 
 ## Project structure
 - **/scripts** - project scripts
+     - hierarchical transformer implementation is located in **/scripts/model/Music_Transformer/hierarchical_music_transformer.py**
+     - new losses are located in **/scripts/loss/CELossWrapper.py**
 - _install_dependencies.sh_ - script for dependencies installation
 - _requirements.txt_ - Python requirements list
 - _train.py_ - script to run train
 - _test.py_ - script to run test
 
-## Installation guide
+## Hierarchical Transformer params
+.json config for hierarchical transformer training is located in **/scripts/configs/REMI/train_hierarchical_music_transformer.json**
 
-It is strongly recommended to use new virtual environment for this project. Project was developed with Python3.9 and Ubuntu 22.04.2 LTS.
-
-To install all required dependencies and final model run:
-```shell
-./install_dependencies.sh
-```
+The most changeable params are:
+- input length: the amount of tokens on the first layer = n
+- shorten factor: shorten factor s from the paper
+- depth: (x, (y, z, y), x) means x layers with n tokens, y layers with n/s tokens, z layers with n/s^2 tokens, ...
+- attn resampling: whether to use attn resampling or not
+- updown sample type: type of down/up sample layer. now there are only "linear" and "naive"
+- save_updown_hidden: if set to true, upsample tokens will not be used for hidden loss calculations (this attribute is needed for CosineCELoss)
 
 ## Reproduce results
 To run train _Music Transformer_ with _REMI_ tokenizer and _Los Angeles MIDI_ dataset:
