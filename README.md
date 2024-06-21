@@ -2,6 +2,8 @@
 
 ## Project description
 
+[Presentation about this project in general(in russian)](https://docs.google.com/presentation/d/1VHXYBQ_0hllOIsx__vtl1KVxg13-n1NKNoh-QT1Fy_0/edit?usp=sharing)
+
 [Presentation about Hierarchical Transformer(in russian)](https://docs.google.com/presentation/d/1DcA-sDbcwSP1stT-Zc5jt3T3nxezFi2h3lZkY3_SvwM/edit?usp=sharing)
 
 This project provides implementation of [Hierarchical Transformer(Hourglass)](https://arxiv.org/pdf/2110.13711) architecture for symbolic music generation. [Music Transformer](https://arxiv.org/pdf/1809.04281) model with [RPR self-attention](https://arxiv.org/pdf/1803.02155) is used as a basic transformer; it's implementation/training code was forked from [Dmitrii Uspenskii project](https://github.com/wwwwwert/Neuromusic). <br />
