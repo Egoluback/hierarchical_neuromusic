@@ -258,7 +258,7 @@ class HourglassTransformer(nn.Module):
         if x_hidden_valley is not None:
             x_hidden = [downsampled, *x_hidden_valley, upsampled]
 
-        if self.save_updown_hidden:
+        if not self.save_updown_hidden:
             x_hidden.pop()
         return x, x_hidden  # is already normed in RPR Transformer Encoder
 
