@@ -3,7 +3,7 @@ import torch
 from einops import rearrange
 from sklearn.metrics.pairwise import cosine_similarity
 from torch import Tensor
-from torch.nn import CosineSimilarity, CrossEntropyLoss
+from torch.nn import CosineSimilarity, CrossEntropyLoss, Softmax
 
 
 class CELossWrapper(CrossEntropyLoss):
@@ -42,7 +42,7 @@ class ExpCosineCELossWrapper(CrossEntropyLoss):
 
         self.lr = lr
 
-    def calc_pairwise_cosine(self, logits_hidden) -> Tensor:
+    def calc_pairwise_cosine(self, logits_hidden) -> float:
         eye_mask = np.where(~np.eye(logits_hidden.shape[0], dtype=bool))
         logits_hidden = logits_hidden.cpu().detach()
         logits_cosine = torch.stack(
@@ -62,3 +62,37 @@ class ExpCosineCELossWrapper(CrossEntropyLoss):
         cumul_pairwise_loss = torch.cat([self.calc_pairwise_cosine(logit_hidden) for logit_hidden in logits_hidden])
 
         return ce_loss + self.lr * cumul_pairwise_loss.mean()
+
+
+class SoftmaxCosineCELossWrapper(CrossEntropyLoss):
+    def __init__(self, lr=1e-3, **kwargs):
+        super().__init__(**kwargs)
+
+        self.lr = lr
+        self.softmax = Softmax()
+        self.ce_softmax = CrossEntropyLoss()
+
+    def calc_pairwise_cosine(self, logits_hidden) -> float:
+        eye_mask = np.where(~np.eye(logits_hidden.shape[0], dtype=bool))
+        logits_hidden = logits_hidden.cpu().detach()
+        logits_cosine = []
+        for b in range(logits_hidden.shape[1]):
+            dij = np.exp(np.reshape(torch.Tensor(cosine_similarity(rearrange(logits_hidden, 'n b d -> b n d')[b])[
+                                                     eye_mask]), (logits_hidden.shape[0], -1)))
+            dij_softmax = self.softmax(dij ** 2)
+            max_dij = dij.max(1).values
+
+            logits_cosine.append(self.ce_softmax(dij_softmax, (dij == max_dij.unsqueeze(1)).float()))
+
+        return sum(logits_cosine) / logits_hidden.shape[1]
+
+    def forward(self, logits, target_ids, logits_hidden, **batch) -> Tensor:
+        ce_loss = super().forward(
+            logits.permute(0, 2, 1),
+            target_ids
+        )
+
+        cumul_pairwise_loss = sum([self.calc_pairwise_cosine(logit_hidden) for logit_hidden in logits_hidden]) / len(
+            logits_hidden)
+
+        return ce_loss + self.lr * cumul_pairwise_loss
